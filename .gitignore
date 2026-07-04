@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+*.dmg
+*.dmg.blockmap
+*.app
+
+# macOS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+
+# WeChat Mini Program (separate project)
+work/todo-weapp/
+outputs/todo-weapp/
+
+# Old version
+work/todo-tree-v1/
+
+# Web build output (not needed, source is the truth)
+outputs/todo-tree/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env
+.env
+.env.local
+
+# Build outputs (DMGs served via GitHub Releases, not in repo)
+outputs/

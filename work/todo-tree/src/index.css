@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --sidebar-width: 280px;
+    --header-height: 56px;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-800 antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-gray-200 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-gray-300; }
+}
+
+/* ── Page transitions ── */
+.fade-enter { opacity: 0; transform: translateY(4px); }
+.fade-enter-active { opacity: 1; transform: translateY(0); transition: all 0.2s ease-out; }
+
+/* ── Checkbox animation ── */
+.checkbox-check { stroke-dasharray: 30; stroke-dashoffset: 30; transition: stroke-dashoffset 0.25s ease-out; }
+.checkbox-check.checked { stroke-dashoffset: 0; }
+
+/* ── Drawer overlay ── */
+.drawer-overlay { @apply fixed inset-0 bg-black/20 backdrop-blur-sm z-40; animation: drawerOverlayIn 0.2s ease-out; }
+@keyframes drawerOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+.drawer-panel { @apply fixed top-0 left-0 bottom-0 w-[280px] bg-white z-50 shadow-2xl; animation: drawerSlideIn 0.25s ease-out; }
+@keyframes drawerSlideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+/* ── Slide up animation ── */
+.slide-up { animation: slideUp 0.2s ease-out; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Scale in ── */
+.scale-in { animation: scaleIn 0.2s ease-out; }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+/* ── macOS Electron hiddenInset titlebar ── */
+.electron-mac .sidebar-desktop > div:first-child {
+  padding-top: 38px !important;
+  -webkit-app-region: drag;
+}
+.electron-mac .sidebar-desktop > div:first-child button,
+.electron-mac .sidebar-desktop > div:first-child input {
+  -webkit-app-region: no-drag;
+}
+
+/* ── Pulse for FAB ── */
+.fab-pulse { animation: fabPulse 2s ease-in-out infinite; }
+@keyframes fabPulse { 0%, 100% { box-shadow: 0 6px 20px rgba(99,102,241,0.35); } 50% { box-shadow: 0 6px 28px rgba(99,102,241,0.55); } }
+
+/* ── Progress ring ── */
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.5s ease-out;
+}
+
+/* ── Header gradient ── */
+.header-gradient {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+}
+
+/* ── Card style ── */
+.todo-card {
+  @apply bg-white rounded-xl border border-gray-100/80;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.todo-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+
+/* ── Responsive sidebar ── */
+@media (max-width: 767px) {
+  .sidebar-desktop { display: none; }
+}
+@media (min-width: 768px) {
+  .sidebar-mobile-drawer { display: none; }
+  .sidebar-desktop { display: flex; }
+}
