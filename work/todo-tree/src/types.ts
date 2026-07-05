@@ -37,4 +37,7 @@ export interface StoreContextType {
   getAncestors: (id: string) => TodoNode[];
   getTree: () => TreeNodeWithChildren[];
   selectGroup: (id: string | null) => void;
+  syncId?: string;
+  syncStatus?: 'local' | 'syncing' | 'synced' | 'error';
+  changeSyncId?: (newId: string) => void;
 }

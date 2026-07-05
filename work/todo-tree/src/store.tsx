@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from 'react';
 import type { TodoNode, TodoState, Action, StoreContextType, TreeNodeWithChildren } from './types';
+import { pushToCloud, pullFromCloud, subscribeToChanges, getSyncId, setSyncId as setSyncIdStorage } from './lib/sync';
+import { ensureTableExists } from './lib/create-table';
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -140,9 +142,13 @@ function loadInitialState(): TodoState {
 
 const TodoContext = createContext<StoreContextType | null>(null);
 
+export type SyncStatus = 'local' | 'syncing' | 'synced' | 'error';
+
 export function TodoProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(todoReducer, null, loadInitialState);
   const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
+  const [syncId, setSyncIdState] = React.useState<string>(() => getSyncId());
+  const [syncStatus, setSyncStatus] = React.useState<SyncStatus>(syncId ? 'synced' : 'local');
 
   // Auto-select the root group on first load
   useEffect(() => {
@@ -163,6 +169,73 @@ export function TodoProvider({ children }: { children: React.ReactNode }) {
     (id: string) => state.nodes[id],
     [state.nodes]
   );
+
+  // --- Cloud Sync ---
+  const lastPushedRef = React.useRef<string>('');
+  const initialSyncDoneRef = React.useRef(false);
+  const pushTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Initial sync: pull from cloud on mount if syncId exists
+  useEffect(() => {
+    if (!syncId) {
+      initialSyncDoneRef.current = true;
+      return;
+    }
+
+    const doInitialSync = async () => {
+      setSyncStatus('syncing');
+      try {
+        await ensureTableExists();
+        const data = await pullFromCloud(syncId);
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          // Remote data exists — use it as source of truth
+          dispatch({ type: 'LOAD_STATE', payload: { nodes: data } });
+          lastPushedRef.current = JSON.stringify(data);
+        } else {
+          // No remote data yet — push local data to cloud
+          const ok = await pushToCloud(state.nodes, syncId);
+          if (ok) lastPushedRef.current = JSON.stringify(state.nodes);
+        }
+        setSyncStatus('synced');
+      } catch {
+        setSyncStatus('local');
+      }
+      initialSyncDoneRef.current = true;
+    };
+
+    doInitialSync();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Subscribe to real-time changes
+  useEffect(() => {
+    if (!syncId) return;
+    const unsub = subscribeToChanges(syncId, (remoteData) => {
+      const dataStr = JSON.stringify(remoteData);
+      if (dataStr !== lastPushedRef.current) {
+        // Change came from another device — load it
+        dispatch({ type: 'LOAD_STATE', payload: { nodes: remoteData } });
+      }
+    });
+    return unsub;
+  }, [syncId]);
+
+  // Debounced push on local state changes
+  useEffect(() => {
+    if (!syncId || !initialSyncDoneRef.current) return;
+
+    if (pushTimerRef.current) clearTimeout(pushTimerRef.current);
+    pushTimerRef.current = setTimeout(async () => {
+      setSyncStatus('syncing');
+      const ok = await pushToCloud(state.nodes, syncId);
+      if (ok) {
+        setSyncStatus('synced');
+        lastPushedRef.current = JSON.stringify(state.nodes);
+      } else {
+        setSyncStatus('error');
+      }
+    }, 800);
+    return () => { if (pushTimerRef.current) clearTimeout(pushTimerRef.current); };
+  }, [state.nodes, syncId, syncStatus]);
 
   const getChildren = useCallback(
     (parentId: string | null) =>
@@ -204,9 +277,41 @@ export function TodoProvider({ children }: { children: React.ReactNode }) {
     setSelectedGroupId(id);
   }, []);
 
+  const changeSyncId = useCallback((newId: string) => {
+    const trimmed = newId.trim();
+    if (trimmed) {
+      setSyncIdStorage(trimmed);
+      setSyncIdState(trimmed);
+      setSyncStatus('synced');
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ state: { ...state, selectedGroupId }, dispatch, getChildren, getNode, getAncestors, getTree, selectGroup }),
-    [state, selectedGroupId, dispatch, getChildren, getNode, getAncestors, getTree, selectGroup]
+    () => ({
+      state: { ...state, selectedGroupId },
+      dispatch,
+      getChildren,
+      getNode,
+      getAncestors,
+      getTree,
+      selectGroup,
+      syncId,
+      syncStatus,
+      changeSyncId,
+    }),
+    [
+      state,
+      selectedGroupId,
+      dispatch,
+      getChildren,
+      getNode,
+      getAncestors,
+      getTree,
+      selectGroup,
+      syncId,
+      syncStatus,
+      changeSyncId,
+    ]
   );
 
   return React.createElement(TodoContext.Provider, { value }, children);

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
-import { TodoProvider } from './store';
+import { TodoProvider, useTodoStore } from './store';
 import TreeSidebar from './components/TreeSidebar';
 import ContentArea from './components/ContentArea';
+import SyncIndicator from './components/SyncIndicator';
 
 function AppContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -38,6 +39,9 @@ function AppContent() {
             <div className="flex-1 overflow-y-auto">
               <TreeSidebar onNavigate={() => setDrawerOpen(false)} />
             </div>
+            <div className="shrink-0">
+              <SyncIndicator />
+            </div>
           </div>
         </>
       )}
@@ -53,6 +57,9 @@ function AppContent() {
           </div>
           <div className="flex-1 overflow-y-auto">
             <TreeSidebar />
+          </div>
+          <div className="shrink-0">
+            <SyncIndicator />
           </div>
         </aside>
         <ContentArea />
