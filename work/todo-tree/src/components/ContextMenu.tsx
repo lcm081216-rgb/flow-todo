@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 export interface MenuItem {
   label: string;
@@ -16,25 +16,37 @@ interface Props {
 
 export default function ContextMenu({ x, y, items, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  // Keep a ref to onClose so the handler doesn't depend on a changing closure
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    const handler = (e: MouseEvent | PointerEvent) => {
+      // Only respond to left-click (button=0)
+      if (e.button !== 0) return;
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onCloseRef.current();
+      }
     };
     const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
-    // Delay so the same click that opened us doesn't close us
+
+    // Use a small delay so the right-click that opened the menu doesn't close it
     const raf = requestAnimationFrame(() => {
       document.addEventListener('mousedown', handler);
       document.addEventListener('keydown', keyHandler);
     });
+
     return () => {
       cancelAnimationFrame(raf);
+      // Use the same handler reference for cleanup
       document.removeEventListener('mousedown', handler);
       document.removeEventListener('keydown', keyHandler);
     };
-  }, [onClose]);
+    // Intentionally only run once on mount — use ref for latest onClose
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Adjust position so menu doesn't clip off-screen
   const adjustedX = Math.min(x, window.innerWidth - 180);
