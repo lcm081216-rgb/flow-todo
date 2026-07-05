@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Circle, CheckCircle2, Trash2, Edit3, ArrowRight, ListTodo } from 'lucide-react';
+import { Circle, CheckCircle2, Trash2, Edit3, ArrowRight, ListTodo, FolderPlus, FileText, ImagePlus } from 'lucide-react';
 import { useTodoStore } from '../store';
 import type { TodoNode } from '../types';
-import { countDescendants } from '../utils';
+import { countDescendants, resizeImage } from '../utils';
+import ContextMenu from './ContextMenu';
 
 interface Props {
   node: TodoNode;
@@ -38,10 +39,14 @@ function ProgressRing({ done, total, size = 40, stroke = 4 }: { done: number; to
 }
 
 /* ── Task Item ── */
-function TaskCard({ node }: { node: TodoNode }) {
+function TaskCard({ node, onDragStart }: { node: TodoNode; onDragStart?: (e: React.DragEvent, node: TodoNode) => void }) {
   const { dispatch } = useTodoStore();
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(node.title);
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewerIdx, setViewerIdx] = useState<number | null>(null);
+  const images = node.images || [];
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setEditTitle(node.title); }, [node.title]);
@@ -55,7 +60,21 @@ function TaskCard({ node }: { node: TodoNode }) {
   };
 
   return (
-    <div className="todo-card px-4 py-3 flex items-center gap-3 group" draggable>
+    <>
+    <div
+      className="todo-card group"
+      draggable
+      onContextMenu={e => {
+        e.preventDefault();
+        setCtxPos({ x: e.clientX, y: e.clientY });
+      }}
+      onDragStart={e => {
+        e.dataTransfer.setData('text/plain', node.id);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.(e, node);
+      }}
+    >
+      <div className="flex items-center gap-3 px-4 py-3">
       {/* Animated checkbox */}
       <button
         onClick={() => dispatch({ type: 'UPDATE_NODE', payload: { id: node.id, completed: !node.completed } })}
@@ -86,23 +105,49 @@ function TaskCard({ node }: { node: TodoNode }) {
       {/* Actions */}
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-200 shrink-0">
         <button onClick={() => { setEditing(true); setEditTitle(node.title); }}
+          onContextMenu={e => e.stopPropagation()}
           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" title="编辑">
           <Edit3 className="w-3.5 h-3.5" />
         </button>
         <button onClick={() => { if (confirm(`删除「${node.title}」？`)) dispatch({ type: 'DELETE_NODE', payload: { id: node.id } }); }}
+          onContextMenu={e => e.stopPropagation()}
           className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="删除">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
+        <button onClick={() => fileInputRef.current?.click()}
+          onContextMenu={e => e.stopPropagation()}
+          className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-500 transition-colors" title="添加图片">
+          <ImagePlus className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
+    {ctxPos && (
+      <ContextMenu
+        x={ctxPos.x}
+        y={ctxPos.y}
+        items={[
+          { label: '转换为分组', icon: <FolderPlus className="w-4 h-4 text-indigo-500" />, onClick: () => dispatch({ type: 'UPDATE_NODE', payload: { id: node.id, type: 'group' } }) },
+          { label: '转换为任务', icon: <FileText className="w-4 h-4 text-gray-400" />, onClick: () => {}, disabled: true },
+        ]}
+        onClose={() => setCtxPos(null)}
+      />
+    )}
+    </div>
+    </>
   );
 }
 
 /* ── Group Item ── */
-function GroupCard({ node }: { node: TodoNode }) {
+function GroupCard({ node, onDragStart, onDragOver, onDrop }: {
+  node: TodoNode;
+  onDragStart?: (e: React.DragEvent, node: TodoNode) => void;
+  onDragOver?: (e: React.DragEvent, node: TodoNode) => void;
+  onDrop?: (e: React.DragEvent, node: TodoNode) => void;
+}) {
   const { state, dispatch, selectGroup } = useTodoStore();
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(node.title);
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const stats = countDescendants(node.id, state.nodes);
 
@@ -117,10 +162,33 @@ function GroupCard({ node }: { node: TodoNode }) {
   };
 
   return (
+    <>
     <div
       className="todo-card px-4 py-3 flex items-center gap-3 group cursor-pointer hover:border-indigo-100/80"
       onClick={() => selectGroup(node.id)}
       draggable
+      onContextMenu={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        setCtxPos({ x: e.clientX, y: e.clientY });
+      }}
+      onDragStart={e => {
+        e.dataTransfer.setData('text/plain', node.id);
+        e.dataTransfer.effectAllowed = 'move';
+        e.stopPropagation();
+        onDragStart?.(e, node);
+      }}
+      onDragOver={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOver?.(e, node);
+      }}
+      onDrop={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDrop?.(e, node);
+      }}
     >
       {/* Progress ring or icon */}
       <div className="shrink-0">
@@ -157,22 +225,39 @@ function GroupCard({ node }: { node: TodoNode }) {
       {/* Actions */}
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-200 shrink-0">
         <button onClick={e => { e.stopPropagation(); setEditing(true); }}
+          onContextMenu={e => e.stopPropagation()}
           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" title="重命名">
           <Edit3 className="w-3.5 h-3.5" />
         </button>
         <button onClick={e => { e.stopPropagation(); if (confirm(`删除分组「${node.title}」？`)) dispatch({ type: 'DELETE_NODE', payload: { id: node.id } }); }}
+          onContextMenu={e => e.stopPropagation()}
           className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors" title="删除">
           <Trash2 className="w-3.5 h-3.5" />
         </button>
         <button onClick={e => { e.stopPropagation(); selectGroup(node.id); }}
+          onContextMenu={e => e.stopPropagation()}
           className="p-1.5 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-500 transition-colors" title="进入">
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>
     </div>
+    {ctxPos && (
+      <ContextMenu
+        x={ctxPos.x}
+        y={ctxPos.y}
+        items={[
+          { label: '转换为分组', icon: <FolderPlus className="w-4 h-4 text-indigo-500" />, onClick: () => {}, disabled: true },
+          { label: '转换为任务', icon: <FileText className="w-4 h-4 text-gray-500" />, onClick: () => dispatch({ type: 'UPDATE_NODE', payload: { id: node.id, type: 'task' } }) },
+        ]}
+        onClose={() => setCtxPos(null)}
+      />
+    )}
+    </>
   );
 }
 
 export default function ItemCard(props: Props) {
-  return props.node.type === 'group' ? <GroupCard node={props.node} /> : <TaskCard node={props.node} />;
+  return props.node.type === 'group'
+    ? <GroupCard node={props.node} onDragStart={props.onDragStart} onDragOver={props.onDragOver} onDrop={props.onDrop} />
+    : <TaskCard node={props.node} onDragStart={props.onDragStart} />;
 }

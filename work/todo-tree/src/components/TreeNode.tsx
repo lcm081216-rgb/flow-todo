@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronRight, Circle, CheckCircle2, Trash2, Edit3, Plus, ListTodo } from 'lucide-react';
+import { ChevronRight, Circle, CheckCircle2, Trash2, Edit3, Plus, ListTodo, FolderPlus, FileText } from 'lucide-react';
 import { useTodoStore } from '../store';
 import type { TodoNode } from '../types';
 import { countDescendants } from '../utils';
+import ContextMenu from './ContextMenu';
 
 interface Props {
   node: TodoNode;
@@ -24,6 +25,7 @@ function MiniBar({ done, total }: { done: number; total: number }) {
 export default function TreeNode({ node, depth = 0, onDragStart, onDragOver, onDrop, onNavigate }: Props) {
   const { state, dispatch, getChildren, selectGroup } = useTodoStore();
   const { selectedGroupId } = state;
+  const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const children = getChildren(node.id);
   const hasChildren = children.length > 0;
   const isGroup = node.type === 'group';
@@ -131,6 +133,18 @@ export default function TreeNode({ node, depth = 0, onDragStart, onDragOver, onD
           </button>
         </div>
       </div>
+
+      {ctxPos && (
+        <ContextMenu
+          x={ctxPos.x}
+          y={ctxPos.y}
+          items={[
+            { label: '转换为分组', icon: <FolderPlus className="w-4 h-4 text-indigo-500" />, onClick: () => dispatch({ type: 'UPDATE_NODE', payload: { id: node.id, type: 'group' } }), disabled: node.type === 'group' },
+            { label: '转换为任务', icon: <FileText className="w-4 h-4 text-gray-500" />, onClick: () => dispatch({ type: 'UPDATE_NODE', payload: { id: node.id, type: 'task' } }), disabled: node.type === 'task' },
+          ]}
+          onClose={() => setCtxPos(null)}
+        />
+      )}
 
       {isGroup && expanded && (
         <div className="ml-3 border-l border-gray-50 pl-1">

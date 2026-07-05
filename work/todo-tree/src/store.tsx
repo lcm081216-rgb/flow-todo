@@ -23,13 +23,15 @@ function todoReducer(state: TodoState, action: Action): TodoState {
       return { ...state, nodes: { ...state.nodes, [newNode.id]: newNode } };
     }
     case 'UPDATE_NODE': {
-      const { id, title, completed } = action.payload;
+      const { id, title, completed, type: newType, images } = action.payload;
       const node = state.nodes[id];
       if (!node) return state;
       const updated: TodoNode = {
         ...node,
         ...(title !== undefined ? { title: title.trim() } : {}),
         ...(completed !== undefined ? { completed } : {}),
+        ...(newType !== undefined ? { type: newType } : {}),
+        ...(images !== undefined ? { images } : {}),
       };
       return { ...state, nodes: { ...state.nodes, [id]: updated } };
     }

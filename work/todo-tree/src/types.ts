@@ -8,6 +8,7 @@ export interface TodoNode {
   order: number;
   completed: boolean;
   createdAt: number;
+  images?: string[];
 }
 
 export interface TreeNodeWithChildren extends TodoNode {
@@ -16,7 +17,7 @@ export interface TreeNodeWithChildren extends TodoNode {
 
 export type Action =
   | { type: 'ADD_NODE'; payload: { type: NodeType; title: string; parentId: string | null } }
-  | { type: 'UPDATE_NODE'; payload: { id: string; title?: string; completed?: boolean } }
+  | { type: 'UPDATE_NODE'; payload: { id: string; title?: string; completed?: boolean; type?: NodeType; images?: string[] } }
   | { type: 'DELETE_NODE'; payload: { id: string } }
   | { type: 'MOVE_NODE'; payload: { id: string; newParentId: string | null; newOrder: number } }
   | { type: 'REORDER_CHILDREN'; payload: { parentId: string | null; orderedIds: string[] } }
