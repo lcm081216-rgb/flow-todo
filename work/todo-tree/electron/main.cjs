@@ -97,5 +97,12 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  // On macOS, activate can fire before app is ready
+  if (BrowserWindow.getAllWindows().length === 0) {
+    if (app.isReady()) {
+      createWindow();
+    } else {
+      app.whenReady().then(createWindow);
+    }
+  }
 });
